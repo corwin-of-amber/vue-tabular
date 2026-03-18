@@ -1,7 +1,7 @@
 import _ from 'lodash';
 import { flatmap, imap } from 'itertools';
 import { Cell } from './index.vue';
-import { dateTimeShort } from '../../infra/datetime';
+import { dateTimeShort } from './infra/datetime';
 
 
 class Gridlet {
@@ -115,6 +115,7 @@ type NestedMap<T> = Map<string, NestedMap<T>>;
 
 
 function fromObjects(objs: object[]) {
+    if (!Array.isArray(objs)) objs = [objs];
 
     let header = new HierarchicalHeader().forObjects(objs);
 
