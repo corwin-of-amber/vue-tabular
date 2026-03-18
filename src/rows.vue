@@ -1,0 +1,61 @@
+<template>
+    <template v-for="row, i in rows">
+        <template v-for="component, j in row">
+            <div v-if="component.text !== undefined" v-text="component.text"
+                :class="classFor(component, i, j)"
+                :style="styleFor(component, i, j)"></div>
+            <div v-if="component.vue !== undefined"
+                :class="classFor(component, i, j)"
+                :style="styleFor(component, i, j)">
+                <component :is="component.vue.type"
+                    :="component.vue.props" v-on="component.vue.handlers"/>
+            </div>
+
+            <template v-if="component.subrows">
+                <GridRows :rows="component.subrows"
+                          :startPos="{row: startPos.row + startHeight(i), 
+                                      col: startPos.col + j}"></GridRows>
+            </template>
+        </template>
+    </template>
+</template>
+
+<script lang="ts">
+import _ from 'lodash';
+import { Vue, Component, Prop, toNative } from 'vue-facing-decorator';
+
+import type { Cell }  from './index.vue';
+
+
+@Component({name: 'GridRows'})
+class IGridRows extends Vue {
+    @Prop rows: any[][]
+    @Prop({default: {row: 0, col: 0}})
+    startPos: {row: number, col: number}
+
+    classFor(cell: Cell, row: number, col: number) {
+        let base = Array.isArray(cell.class)
+        ? cell.class : cell.class ? [cell.class] : [];
+        return base;
+    }
+
+    styleFor(cell: Cell, row: number, col: number) {
+        return {'--rowspan': cell.rowspan,
+                '--rowstart': 1 + this.startPos.row + this.startHeight(row),
+                '--colspan': cell.colspan,
+                '--colstart': 1 + this.startPos.col + this.startWidth(row, col)}
+    }
+
+    startHeight(row: number) {
+        return _.sum(this.rows.slice(0, row).map(row =>
+            row[0]?.rowspan ?? 1))
+    }
+
+    startWidth(row: number, col: number) {
+        return _.sum(this.rows[row].slice(0, col).map(cell =>
+            cell.colspan ?? 1));
+    }
+}
+
+export default toNative(IGridRows);
+</script>
