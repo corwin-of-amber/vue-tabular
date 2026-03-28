@@ -14,7 +14,7 @@
             <template v-if="component.subrows">
                 <GridRows :rows="component.subrows"
                           :startPos="{row: startPos.row + startHeight(i), 
-                                      col: startPos.col + j}"></GridRows>
+                                      col: startPos.col + startWidth(i, j)}"/>
             </template>
         </template>
     </template>
@@ -29,13 +29,13 @@ import type { Cell }  from './index.vue';
 
 @Component({name: 'GridRows'})
 class IGridRows extends Vue {
-    @Prop rows: any[][]
+    @Prop rows: Cell[][]
     @Prop({default: {row: 0, col: 0}})
     startPos: {row: number, col: number}
 
     classFor(cell: Cell, row: number, col: number) {
         let base = Array.isArray(cell.class)
-        ? cell.class : cell.class ? [cell.class] : [];
+            ? cell.class : cell.class ? [cell.class] : [];
         return base;
     }
 
@@ -53,7 +53,16 @@ class IGridRows extends Vue {
 
     startWidth(row: number, col: number) {
         return _.sum(this.rows[row].slice(0, col).map(cell =>
-            cell.colspan ?? 1));
+            this.cellWidth(cell)));
+    }
+
+    rowWidth(row: Cell[]) {
+        return _.sum(row.map(c => this.cellWidth(c)));
+    }
+
+    cellWidth(cell: Cell) {
+        return cell.colspan ?? (cell.subrows ? 
+            _.max(cell.subrows.map(row => this.rowWidth(row))) : 1);
     }
 }
 

@@ -28,6 +28,8 @@ class Gridlet {
     }
 
     happend(subgrid: Gridlet) {
+        this._compact(); subgrid = subgrid._compact();
+
         let w = this.width, subh = subgrid.height, subw = subgrid.width;
         while (this.height < subh) {
             this.d.push(this._hfill(w));
@@ -42,17 +44,23 @@ class Gridlet {
     _hfill(width: number): Cell[] {
         return width > 0 ? [{text: '', colspan: width}] : [];
     }
+
+    _compact() {
+        this.d.splice(1, Infinity,
+            ...this.d.slice(1).filter(x => x.some(v => v.text !== undefined)));
+        return this;
+    }
 }
 
 
 class HierarchicalHeader {
-    labels: NestedMap<string>
+    labels: NestedMap<Key>
 
     constructor(labels?: HierarchicalHeader['labels']) {
         this.labels = labels ?? new Map;
     }
 
-    fromKeyPaths(keypaths: Iterable<string[]>) {
+    fromKeyPaths(keypaths: Iterable<Key[]>) {
         for (let key of keypaths) {
             let hm = this.labels;
             for (let el of key) {
@@ -77,14 +85,18 @@ class HierarchicalHeader {
     }
 
     gridify() {
-        return aux(this.labels);
+        return this._cleanup(aux(this.labels));
 
-        function aux(h: NestedMap<string>): Gridlet {
+        function aux(h: NestedMap<Key>): Gridlet {
             let grid = new Gridlet();
 
             for (let [k, v] of h.entries()) {
                 let subgrid = aux(v);
-                subgrid.d.unshift([{text: k, colspan: subgrid.width || 1}]);
+                subgrid.d.unshift([{
+                    text: k === SPREAD ? undefined : `${k}`,
+                    class: 'header',
+                    colspan: subgrid.width || 1
+                }]);
                 grid.happend(subgrid);
             }
 
@@ -92,14 +104,24 @@ class HierarchicalHeader {
         }
     }
 
+    _cleanup(grid: Gridlet) {
+        for (let r of grid.d)
+            for (let c of r)
+                c.text ??= '';
+        return grid;
+    }
+
     *traverse(obj: any) {
         yield* aux(obj, this.labels);
 
-        function *aux(obj: any, h: NestedMap<string>, pfx: string[] = []) {
-            if (h.size === 0 || Array.isArray(obj)) yield [pfx, obj]
+        function *aux(obj: any, h: NestedMap<Key>, pfx: Key[] = []) {
+            if (h.size === 0) yield [pfx, obj]
             else {
                 for (let [k, v] of h.entries()) {
-                    yield* aux(obj?.[k], v, [...pfx, k]);
+                    if (k === SPREAD) 
+                        yield [[...pfx, k], Array.isArray(obj) ? obj : undefined];                    
+                    else
+                        yield* aux(obj?.[k], v, [...pfx, k]);
                 }
             }
         }
@@ -110,8 +132,10 @@ class GridWidget {
     constructor(public payload: object) { }
 }
 
-type NestedMap<T> = Map<string, NestedMap<T>>;
+type NestedMap<T> = Map<T, NestedMap<T>>;
 
+type Key = string | number;
+const SPREAD = Infinity;
 
 
 function fromObjects(objs: object[]) {
@@ -154,18 +178,28 @@ function flattenObjectEntries(o: object) {
     return [...iflattenObjectEntries(o)];
 }
 
-function *iflattenObjectEntries(o: object) {
+
+function *iflattenObjectEntries(o: object, level=0): Iterable<[Key[], any]> {
+
+    let pfx = (pfx: Key[], sub: Iterable<[Key[], any]>) =>
+        imap(sub, ([subk, subv]) => [[...pfx, ...subk], subv] as [Key[], any]);
+
     if (Array.isArray(o)) {
-        for (let el of o) {
-            yield* typeof el === 'object' ?
-                iflattenObjectEntries(el) : [[[], el]];
+        if (level == 0) {
+            yield* o.map((v, i) =>  [[i], v] as [Key[], any]);
+        }
+        else {
+            for (let el of o) {
+                yield* typeof el === 'object' ?
+                    pfx([SPREAD], iflattenObjectEntries(el)) : [[[SPREAD], el]];
+            }
         }
     }
     else {
         if (typeof o['_'] === 'object') o = o['_'];
         yield* flatmap(Object.entries(o), ([k ,v]) =>
             typeof v === 'object' && v !== null && !(v instanceof Date || v instanceof GridWidget) ?
-                imap(iflattenObjectEntries(v), ([subk, subv]) => [[k, ...subk], subv])
+                pfx([k], iflattenObjectEntries(v, level + 1))
               : [[[k], v]]
         );
     }

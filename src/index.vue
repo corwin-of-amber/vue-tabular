@@ -27,6 +27,10 @@ div.tabular {
         grid-row: var(--rowstart) / span var(--rowspan, 1);
     }
 
+    div.header {
+        background-color: #eee;
+    }
+
     div.url {
         white-space: nowrap;
         overflow: hidden;
@@ -102,6 +106,8 @@ type Cell = {
     class?: string | string[]
     rowspan?: number
     colspan?: number
+
+    vue?: {type: string, props: object, handlers: object}
 }
 //({text: string, class?: string | string[]} |
 // {subrows: string[]}) & {rowspan?: number}
