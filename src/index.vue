@@ -2,7 +2,7 @@
     <div class="tabular"
             :style="{'--ncolumns': width, '--nrows': computedHeight}"
             @mousedown="selectCell">
-        <GridRows :rows="data"></GridRows>
+        <GridRows :rows="data" :directMap="directMap"></GridRows>
         <div v-if="sel" class="selection"
             :style="{'--rowstart': sel.row, '--colstart': sel.col}"></div>
     </div>
@@ -50,6 +50,7 @@ div.tabular {
 <script lang="ts">
 import _ from 'lodash';
 import { Vue, Component, Prop, toNative } from 'vue-facing-decorator';
+import { Key } from './data';
 import GridRows from './rows.vue';
 
 @Component({
@@ -60,7 +61,8 @@ class ITabular extends Vue {
     @Prop({default: []})
     data: Cell[][]
     
-    sel: RowCol = undefined
+    sel: RowCol & {cell?: Cell} = undefined
+    directMap: Map<Element, Cell> = new Map()
 
     get width() {
         return _.max(this.data.map(r => r.length)) ?? 0;
@@ -87,7 +89,10 @@ class ITabular extends Vue {
         let cell = this.closestCell(ev.target as Element);
         if (cell) {
             let cst = getComputedStyle(cell);
-            this.sel = {row: +cst.gridRowStart, col: +cst.gridColumnStart};
+            this.sel = {
+                row: +cst.gridRowStart, col: +cst.gridColumnStart,
+                cell: this.directMap?.get(cell)
+            };
         }
     }
 
@@ -107,7 +112,8 @@ type Cell = {
     rowspan?: number
     colspan?: number
 
-    vue?: {type: string, props: object, handlers: object}
+    path?: Key[]    // property path to data
+    vue?: {type: string, props: object, handlers: object}  // Vue.js widget data
 }
 //({text: string, class?: string | string[]} |
 // {subrows: string[]}) & {rowspan?: number}

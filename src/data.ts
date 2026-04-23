@@ -143,10 +143,13 @@ function fromObjects(objs: object[]) {
 
     let header = new HierarchicalHeader().forObjects(objs);
 
-    function subrows(objs: any[], header: HierarchicalHeader) {
-        return objs.map(row => [...header.traverse(row)].map(([kp, v]) =>
-            Array.isArray(v) ? {subrows: subrows(v, header.sub(kp))}
-                             : valueDisplay(v)));
+    function subrows(objs: any[], header: HierarchicalHeader, pfx: Key[] = []) {
+        let npfx = (kp: Key[], idx: number) => //
+            [...pfx, idx, ...kp.slice(-1)[0] === SPREAD ? kp.slice(0, -1) : kp]
+
+        return objs.map((row, idx) => [...header.traverse(row)].map(([kp, v]) =>
+            Array.isArray(v) ? {subrows: subrows(v, header.sub(kp), npfx(kp, idx))}
+                             : {...valueDisplay(v), path: npfx(kp, idx)}));
     }
 
     return [
@@ -164,6 +167,8 @@ function valueDisplay(value: any) {
         return {text: Math.round(value * 1e5) / 1e5};
     else if (value instanceof Date)
         return {text: dateTimeShort(value)};
+    else if (value instanceof Function)
+        return {text: '𝒻'}
     else if (value instanceof GridWidget)
         return value.payload;
     else
@@ -205,5 +210,5 @@ function *iflattenObjectEntries(o: object, level=0): Iterable<[Key[], any]> {
     }
 }
 
-export { Gridlet, HierarchicalHeader, GridWidget,
+export { Gridlet, HierarchicalHeader, GridWidget, Key,
          fromObjects, flattenObject, flattenObjectEntries }
